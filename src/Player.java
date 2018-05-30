@@ -1,3 +1,3 @@
 public interface Player {
-    public void move(Board board);
+    void move(Board board);
 }
