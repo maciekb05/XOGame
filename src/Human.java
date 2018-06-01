@@ -9,7 +9,10 @@ public class Human implements Player {
     }
 
     @Override
-    public void move(Board board) {
+    public Board move(Board board) {
+        Computer comp = new Computer('X');
+        System.out.println("Gain O: " + comp.gainFromBoard('O', board));
+        System.out.println("Gain X: " + comp.gainFromBoard('X', board));
         BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
 
         System.out.println("Ruch gracza " + sign + ", wybierz pozycje:");
@@ -19,9 +22,12 @@ public class Human implements Player {
             Integer posX = Integer.parseInt(positionSplitted[0]);
             Integer posY = Integer.parseInt(positionSplitted[1]);
             board.move(posX, posY, sign);
+            return board;
         }
         catch(Exception e){
             e.printStackTrace();
         }
+
+        return board;
     }
 }

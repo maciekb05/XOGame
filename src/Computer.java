@@ -2,27 +2,28 @@ import java.util.HashSet;
 
 public class Computer implements Player {
     private final char sign;
-    private final int SCALE_FOR_GAIN_FUNCTION = 5;
+    private final int WEIGHT_OF_OPPONENT_GAIN = 500;
+    private final double SCALE_OPPONENT_GAIN = 0.05;
+    private final int SCALE_FOR_GAIN_FUNCTION = 20;
 
 
-    public Computer(char sign) {
+    Computer(char sign) {
         this.sign = sign;
     }
 
     @Override
-    public void move(Board board) {
-        HashSet<int[]> surroundingPositions = findSurroundingPositions(board);
-
+    public Board move(Board board) {
+        System.out.println("Gain O: " + gainFromBoard('O', board));
+        System.out.println("Gain X: " + gainFromBoard('X', board));
+        HashSet<Position> surroundingPositions = findSurroundingPositions(board);
 
         int max = Integer.MIN_VALUE;
-        int[] maxPosition = new int[2];
-        maxPosition[0] = 1;
-        maxPosition[1] = 1;
+        Position maxPosition = new Position();
 
         if(surroundingPositions.size() == 2 || surroundingPositions.size() == 1 || surroundingPositions.size() == 3) {
-            for(int[] pos : surroundingPositions){
+            for(Position position : surroundingPositions){
                 try {
-                    board.move(pos[0],pos[1],sign);
+                    board.move(position.positionX, position.positionY, sign);
                     break;
                 } catch (Exception e) {
                     e.printStackTrace();
@@ -30,149 +31,169 @@ public class Computer implements Player {
             }
         }
         else{
+            int opponentGainBeforeMove;
+            int opponentGainAfterMove;
 
             boolean maxPositionInitialized = false;
-            for(int[] position : surroundingPositions) {
-                if(board.charAtNormalized(position[0],position[1])==' ') {
+            for(Position position : surroundingPositions) {
+                if(board.charAtNormalized(position.positionX, position.positionY)==' ') {
+
                     if(!maxPositionInitialized){
-                        maxPosition[0] = position[0];
-                        maxPosition[1] = position[1];
+                        maxPosition.positionX = position.positionX;
+                        maxPosition.positionY = position.positionY;
                         maxPositionInitialized = true;
                     }
 
-                    board.getGameBoard().get(position[0]-1).set(position[1]-1, sign);
+                    opponentGainBeforeMove = gainFromBoard(opponentSign(sign), board);
+                    board.getGameBoard().get(position.positionX - 1).set(position.positionY - 1, sign);
+                    opponentGainAfterMove = gainFromBoard(opponentSign(sign), board);
 
-                    HashSet<int[]> surroundingPositionsForOpponent = findSurroundingPositions(board);
+                    HashSet<Position> surroundingPositionsForOpponent = findSurroundingPositions(board);
 
                     int maxOpponent = 0;
-                    int[] maxPositionOpponent = new int[2];
-                    for(int[] positionOpponent : surroundingPositionsForOpponent) {
-                        if (board.charAtNormalized(positionOpponent[0], positionOpponent[1]) == ' ') {
+                    Position maxPositionOpponent = new Position();
+                    boolean maxPositionOpponentInitialized = false;
 
-                            board.getGameBoard().get(positionOpponent[0] - 1).set(positionOpponent[1] - 1, opponentSign());
+                    for(Position positionOpponent : surroundingPositionsForOpponent) {
+                        if (board.charAtNormalized(positionOpponent.positionX, positionOpponent.positionY) == ' ') {
 
-                            int currentOpponent = gainFromBoard(opponentSign(), board);
-                            if (maxOpponent < currentOpponent) {
-                                maxOpponent = currentOpponent;
-                                maxPositionOpponent[0] = positionOpponent[0];
-                                maxPositionOpponent[1] = positionOpponent[1];
+                            if(!maxPositionOpponentInitialized){
+                                maxPositionOpponent.positionX = positionOpponent.positionX;
+                                maxPositionOpponent.positionY = positionOpponent.positionY;
+                                maxPositionOpponentInitialized = true;
                             }
 
-                            board.getGameBoard().get(positionOpponent[0] - 1).set(positionOpponent[1] - 1, ' ');
+                            board.getGameBoard().get(positionOpponent.positionX - 1).set(positionOpponent.positionY - 1, opponentSign(sign));
+
+                            int currentOpponent = gainFromBoard(opponentSign(sign), board) - gainFromBoard(sign, board);
+                            if (maxOpponent < currentOpponent) {
+                                maxOpponent = currentOpponent;
+                                maxPositionOpponent.positionX = positionOpponent.positionX;
+                                maxPositionOpponent.positionY = positionOpponent.positionY;
+                            }
+
+                            board.getGameBoard().get(positionOpponent.positionX - 1).set(positionOpponent.positionY - 1, ' ');
 
                         }
                     }
 
-                    board.getGameBoard().get(maxPositionOpponent[0] - 1).set(maxPositionOpponent[1] - 1, opponentSign());
+                    board.getGameBoard().get(maxPositionOpponent.positionX - 1).set(maxPositionOpponent.positionY - 1, opponentSign(sign));
 
-                    HashSet<int[]> surroundingPositionsNext = findSurroundingPositions(board);
+                    HashSet<Position> surroundingPositionsNext = findSurroundingPositions(board);
 
-                    for(int[] positionNext : surroundingPositionsNext) {
-                        if(board.charAtNormalized(positionNext[0],positionNext[1])==' ') {
-                            board.getGameBoard().get(positionNext[0]-1).set(positionNext[1]-1, sign);
+                    for(Position positionNext : surroundingPositionsNext) {
+                        if(board.charAtNormalized(positionNext.positionX, positionNext.positionY) == ' ') {
 
-                            int current = gainFromBoard(sign, board);
+                            board.getGameBoard().get(positionNext.positionX-1).set(positionNext.positionY - 1, sign);
+
+
+                            int current = gainFromBoard(sign, board) - gainFromBoard(opponentSign(sign), board);
+
+                            if(opponentGainAfterMove < opponentGainBeforeMove){
+                                current += Math.abs(opponentGainBeforeMove - opponentGainAfterMove) * WEIGHT_OF_OPPONENT_GAIN;
+                            }
 
                             if (max < current) {
                                 max = current;
-                                maxPosition[0] = position[0];
-                                maxPosition[1] = position[1];
+                                maxPosition.positionX = position.positionX;
+                                maxPosition.positionY = position.positionY;
                             }
 
-                            board.getGameBoard().get(positionNext[0]-1).set(positionNext[1]-1, ' ');
+                            board.getGameBoard().get(positionNext.positionX-1).set(positionNext.positionY-1, ' ');
                         }
                     }
 
-                    board.getGameBoard().get(maxPositionOpponent[0] - 1).set(maxPositionOpponent[1] - 1, ' ');
-                    board.getGameBoard().get(position[0]-1).set(position[1]-1, ' ');
+                    board.getGameBoard().get(maxPositionOpponent.positionX - 1).set(maxPositionOpponent.positionY - 1, ' ');
+                    board.getGameBoard().get(position.positionX - 1).set(position.positionY - 1, ' ');
                 }
             }
             try{
-                board.move(maxPosition[0],maxPosition[1],sign);
+                board.move(maxPosition.positionX, maxPosition.positionY, sign);
             }
             catch (Exception e) {
-                System.out.println(maxPosition[0]+"  "+maxPosition[1]);
+                System.out.println(maxPosition.positionX + "  " + maxPosition.positionY);
                 e.printStackTrace();
             }
 
         }
+        return board;
     }
 
-    public HashSet<int[]> findSurroundingPositions(Board board) {
-        HashSet<int[]> positions = new HashSet<>();
+    private HashSet<Position> findSurroundingPositions(Board board) {
+        HashSet<Position> positions = new HashSet<>();
         for(int i = 1; i <= board.getSize(); i++) {
             for(int j = 1; j <= board.getSize(); j++) {
                 if(board.charAtNormalized(i,j) == 'X' || board.charAtNormalized(i,j) == 'O'){
 
-                    int[] current0 = new int[2];
-                    current0[0] = i+1;
-                    current0[1] = j;
-                    if(board.positionIsInRangeOfBoard(current0[0]-1, current0[1]-1)){
-                        if(board.charAtNormalized(current0[0],current0[1]) == ' ') {
+                    Position current0 = new Position();
+                    current0.positionX = i+1;
+                    current0.positionY = j;
+                    if(board.positionIsInRangeOfBoard(current0.positionX - 1, current0.positionY - 1)){
+                        if(board.charAtNormalized(current0.positionX, current0.positionY) == ' ') {
                             positions.add(current0);
                         }
 
                     }
 
-                    int[] current1 = new int[2];
-                    current1[0] = i+1;
-                    current1[1] = j+1;
-                    if(board.positionIsInRangeOfBoard(current1[0]-1, current1[1]-1)){
-                        if(board.charAtNormalized(current1[0],current1[1]) == ' ') {
+                    Position current1 = new Position();
+                    current1.positionX = i+1;
+                    current1.positionY = j+1;
+                    if(board.positionIsInRangeOfBoard(current1.positionX-1, current1.positionY-1)){
+                        if(board.charAtNormalized(current1.positionX,current1.positionY) == ' ') {
                             positions.add(current1);
                         }
                     }
 
-                    int[] current2 = new int[2];
-                    current2[0] = i;
-                    current2[1] = j+1;
-                    if(board.positionIsInRangeOfBoard(current2[0]-1, current2[1]-1)){
-                        if(board.charAtNormalized(current2[0],current2[1]) == ' ') {
+                    Position current2 = new Position();
+                    current2.positionX = i;
+                    current2.positionY = j+1;
+                    if(board.positionIsInRangeOfBoard(current2.positionX-1, current2.positionY-1)){
+                        if(board.charAtNormalized(current2.positionX,current2.positionY) == ' ') {
                             positions.add(current2);
                         }
                     }
 
-                    int[] current3 = new int[2];
-                    current3[0] = i-1;
-                    current3[1] = j+1;
-                    if(board.positionIsInRangeOfBoard(current3[0]-1, current3[1]-1)){
-                        if(board.charAtNormalized(current3[0],current3[1]) == ' ') {
+                    Position current3 = new Position();
+                    current3.positionX = i-1;
+                    current3.positionY = j+1;
+                    if(board.positionIsInRangeOfBoard(current3.positionX-1, current3.positionY-1)){
+                        if(board.charAtNormalized(current3.positionX,current3.positionY) == ' ') {
                             positions.add(current3);
                         }
                     }
 
-                    int[] current4 = new int[2];
-                    current4[0] = i-1;
-                    current4[1] = j;
-                    if(board.positionIsInRangeOfBoard(current4[0]-1, current4[1]-1)){
-                        if(board.charAtNormalized(current4[0],current4[1]) == ' ') {
+                    Position current4 = new Position();
+                    current4.positionX = i-1;
+                    current4.positionY = j;
+                    if(board.positionIsInRangeOfBoard(current4.positionX-1, current4.positionY-1)){
+                        if(board.charAtNormalized(current4.positionX,current4.positionY) == ' ') {
                             positions.add(current4);
                         }
                     }
 
-                    int[] current5 = new int[2];
-                    current5[0] = i-1;
-                    current5[1] = j-1;
-                    if(board.positionIsInRangeOfBoard(current5[0]-1, current5[1]-1)){
-                        if(board.charAtNormalized(current5[0],current5[1]) == ' ') {
+                    Position current5 = new Position();
+                    current5.positionX = i-1;
+                    current5.positionY = j-1;
+                    if(board.positionIsInRangeOfBoard(current5.positionX-1, current5.positionY-1)){
+                        if(board.charAtNormalized(current5.positionX,current5.positionY) == ' ') {
                             positions.add(current5);
                         }
                     }
 
-                    int[] current6 = new int[2];
-                    current6[0] = i;
-                    current6[1] = j-1;
-                    if(board.positionIsInRangeOfBoard(current6[0]-1, current6[1]-1)){
-                        if(board.charAtNormalized(current6[0],current6[1]) == ' ') {
+                    Position current6 = new Position();
+                    current6.positionX = i;
+                    current6.positionY = j-1;
+                    if(board.positionIsInRangeOfBoard(current6.positionX-1, current6.positionY-1)){
+                        if(board.charAtNormalized(current6.positionX,current6.positionY) == ' ') {
                             positions.add(current6);
                         }
                     }
 
-                    int[] current7 = new int[2];
-                    current7[0] = i+1;
-                    current7[1] = j-1;
-                    if(board.positionIsInRangeOfBoard(current7[0]-1, current7[1]-1)){
-                        if(board.charAtNormalized(current7[0],current7[1]) == ' ') {
+                    Position current7 = new Position();
+                    current7.positionX = i+1;
+                    current7.positionY = j-1;
+                    if(board.positionIsInRangeOfBoard(current7.positionX-1, current7.positionY-1)){
+                        if(board.charAtNormalized(current7.positionX,current7.positionY) == ' ') {
                             positions.add(current7);
                         }
                     }
@@ -182,464 +203,345 @@ public class Computer implements Player {
         return positions;
     }
 
-    public int gainFromBoard(char sign, Board board) {
+    int gainFromBoard(char sign, Board board) {
         int gain = 0;
-        for(int i = 1; i <= board.getSize(); i++) {
-            for(int j = 1; j <= board.getSize(); j++) {
-                if(board.charAt(i-1,j-1) == sign) {
-                    gain += gainFromOnePoint(i,j,sign,board);
+        for(int i = 0; i < board.getSize(); i++) {
+            for(int j = 0; j < board.getSize(); j++) {
+                if(board.charAt(i, j) == sign) {
+                    gain += gainFromOnePoint(i, j, sign, board);
                 }
-                else if(board.charAt(i-1, j-1) == opponentSign()) {
-                    int opponentGain = gainFromOnePoint(i,j,opponentSign(),board);
-                    if (opponentGain < 0) {
-                        gain -= opponentGain / 65;
+                else if(board.charAt(i, j) == opponentSign(sign)) {
+                    int opponentGain = gainFromOnePoint(i, j, opponentSign(sign), board);
+                    if(sign == opponentSign(this.sign)) {
+                        gain -= (opponentGain * SCALE_OPPONENT_GAIN);
                     }
-                    else {
-                        gain -= 65 * opponentGain;
-                    }
-
                 }
             }
         }
         return gain;
     }
 
-    public int gainFromOnePoint(int posX, int posY, char sign, Board board) {
-        int gainTop = gainFromOnePointTop(posX - 1, posY - 1, sign, board);
-        int gainBottom = gainFromOnePointBottom(posX - 1, posY - 1, sign, board);
-        int gainRight = gainFromOnePointRight(posX - 1, posY - 1, sign, board);
-        int gainLeft = gainFromOnePointLeft(posX - 1, posY - 1, sign, board);
-        int gainTopLeft = gainFromOnePointTopLeft(posX - 1, posY - 1, sign, board);
-        int gainBottomLeft = gainFromOnePointBottomLeft(posX - 1, posY - 1, sign, board);
-        int gainTopRight = gainFromOnePointTopRight(posX - 1, posY - 1, sign, board);
-        int gainBottomRight = gainFromOnePointBottomRight(posX - 1, posY - 1, sign, board);
+    private int gainFromOnePoint(int posX, int posY, char sign, Board board) {
+        int gainTop = gainFromOnePointTop(posX, posY, sign, board);
+        int gainBottom = gainFromOnePointBottom(posX, posY, sign, board);
+        int gainRight = gainFromOnePointRight(posX, posY, sign, board);
+        int gainLeft = gainFromOnePointLeft(posX, posY, sign, board);
+        int gainTopLeft = gainFromOnePointTopLeft(posX, posY, sign, board);
+        int gainBottomLeft = gainFromOnePointBottomLeft(posX, posY, sign, board);
+        int gainTopRight = gainFromOnePointTopRight(posX, posY, sign, board);
+        int gainBottomRight = gainFromOnePointBottomRight(posX, posY, sign, board);
         return gainTop + gainBottom + gainRight + gainLeft + gainTopLeft + gainBottomLeft + gainTopRight + gainBottomRight;
     }
 
-    private int gainFromOnePointTop(int posX, int posY, char sign, Board board) {
+    private int gainFromOnePointLeftOrBottom(int posX, int posY, char sign, Board board, Boolean left) {
         int gain =SCALE_FOR_GAIN_FUNCTION;
-        int placesToWin = 1;
-        boolean restricted = false;
-        for(int i = posX - 1; i >= posX - board.NUMBER_TO_WIN; i--) {
-            if(board.positionIsInRangeOfBoard(i, posY)) {
-                if(board.charAt(i, posY) == sign) {
-                    gain *=SCALE_FOR_GAIN_FUNCTION;
-                    placesToWin += 1;
-                }
-                else if(board.charAt(i, posY) == opponentSign()) {
-                    gain /= SCALE_FOR_GAIN_FUNCTION;
-                    restricted = true;
-                    break;
-                }
-                else {
-                    placesToWin += 1;
-                }
-            }
-            else {
-                gain /= SCALE_FOR_GAIN_FUNCTION;
-                restricted = true;
+        Flags flags = new Flags();
+
+        int oldposX = posX;
+        int oldposY = posY;
+
+        if(left){
+            posY -= 1;
+        }
+        else {
+            posX -= 1;
+        }
+
+        for(int i = 0; i < board.NUMBER_TO_WIN; i++) {
+            gain = gainRescale(board, posX, posY, sign, gain, flags);
+
+            if(flags.end) {
                 break;
             }
-        }
-        for(int i = 0; i < board.NUMBER_TO_WIN - placesToWin; i++) {
-            if(board.positionIsInRangeOfBoard(posX + 1 + i, posY)) {
-                if(board.charAt(posX + 1 + i, posY) == sign) {
-                    gain *=SCALE_FOR_GAIN_FUNCTION;
-                    placesToWin += 1;
-                }
-                else if(board.charAt(posX + 1 + i, posY) == opponentSign()) {
-                    if(restricted = true) {
-                        return 0;
-                    }
-                }
-                else {
-                    placesToWin += 1;
-                }
+
+            if(left) {
+                posY -= 1;
             }
             else {
-                return 0;
+                posX -= 1;
             }
         }
-        return gain;
 
+        if(left) {
+            posY = oldposY + 1;
+        }
+        else {
+            posX = oldposX + 1;
+        }
+
+
+        int remaining = board.NUMBER_TO_WIN - flags.placesToWin;
+
+        for(int i = 0; i < remaining; i++) {
+            gain = gainRescaleSecondTime(board, posX, posY, sign, gain, flags);
+
+            if(left) {
+                posY += 1;
+            }
+            else {
+                posX += 1;
+            }
+        }
+
+        return gain;
     }
 
-    private int gainFromOnePointRight(int posX, int posY, char sign, Board board) {
-        int gain =SCALE_FOR_GAIN_FUNCTION;
-        int placesToWin = 1;
-        boolean restricted = false;
-        for(int i = posY + 1; i < posY + board.NUMBER_TO_WIN; i++) {
-            if(board.positionIsInRangeOfBoard(posX, i)) {
-                if(board.charAt(posX, i) == sign) {
-                    gain *=SCALE_FOR_GAIN_FUNCTION;
-                    placesToWin += 1;
-                }
-                else if(board.charAt(posX, i) == opponentSign()) {
-                    gain /= SCALE_FOR_GAIN_FUNCTION;
-                    restricted = true;
-                    break;
-                }
-                else {
-                    placesToWin += 1;
-                }
-            }
-            else {
-                gain /= SCALE_FOR_GAIN_FUNCTION;
-                restricted = true;
-                break;
-            }
-        }
-        for(int i = 0; i < board.NUMBER_TO_WIN - placesToWin; i++) {
-            if(board.positionIsInRangeOfBoard(posX, posY - 1 - i)) {
-                if(board.charAt(posX, posY - 1 - i) == sign) {
-                    gain *=SCALE_FOR_GAIN_FUNCTION;
-                    placesToWin += 1;
-                }
-                else if(board.charAt(posX, posY - 1 - i) == opponentSign()) {
-                    if(restricted = true) {
-                        return 0;
-                    }
-                }
-                else {
-                    placesToWin += 1;
-                }
-            }
-            else {
-                return 0;
-            }
-        }
-        return gain;
-
+    private int gainFromOnePointTop(int posX, int posY, char sign, Board board) {
+        return gainFromOnePointLeftOrBottom(posX, posY, sign, board, false);
     }
 
     private int gainFromOnePointLeft(int posX, int posY, char sign, Board board) {
+        return gainFromOnePointLeftOrBottom(posX, posY, sign, board, true);
+    }
+
+    private int gainFromOnePointRightOrBottom(int posX, int posY, char sign, Board board, Boolean right) {
         int gain =SCALE_FOR_GAIN_FUNCTION;
-        int placesToWin = 1;
-        boolean restricted = false;
-        for(int i = posY - 1; i >= posY - board.NUMBER_TO_WIN; i--) {
-            if(board.positionIsInRangeOfBoard(posX, i)) {
-                if(board.charAt(posX, i) == sign) {
-                    gain *=SCALE_FOR_GAIN_FUNCTION;
-                    placesToWin += 1;
-                }
-                else if(board.charAt(posX, i) == opponentSign()) {
-                    gain /= SCALE_FOR_GAIN_FUNCTION;
-                    restricted = true;
-                    break;
-                }
-                else {
-                    placesToWin += 1;
-                }
-            }
-            else {
-                gain /= SCALE_FOR_GAIN_FUNCTION;
-                restricted = true;
+        Flags flags = new Flags();
+
+        int oldposY = posY;
+        int oldposX = posX;
+
+
+        if(right) {
+            posY += 1;
+        }
+        else {
+            posX += 1;
+        }
+
+        for(int i = 0; i < board.NUMBER_TO_WIN; i++) {
+            gain = gainRescale(board, posX, posY, sign, gain, flags);
+
+            if(flags.end) {
                 break;
             }
-        }
-        for(int i = 0; i < board.NUMBER_TO_WIN - placesToWin; i++) {
-            if(board.positionIsInRangeOfBoard(posX, posY + 1 + i)) {
-                if(board.charAt(posX, posY + 1 + i) == sign) {
-                    gain *=SCALE_FOR_GAIN_FUNCTION;
-                    placesToWin += 1;
-                }
-                else if(board.charAt(posX, posY + 1 + i) == opponentSign()) {
-                    if(restricted = true) {
-                        return 0;
-                    }
-                }
-                else {
-                    placesToWin += 1;
-                }
+
+            if(right) {
+                posY += 1;
             }
             else {
-                return 0;
+                posX += 1;
             }
         }
-        return gain;
 
+        if(right) {
+            posY = oldposY - 1;
+        }
+        else {
+            posX = oldposX - 1;
+        }
+
+        int remaining = board.NUMBER_TO_WIN - flags.placesToWin;
+
+        for(int i = 0; i < remaining; i++) {
+            gain = gainRescaleSecondTime(board, posX, posY, sign, gain, flags);
+
+            if(right) {
+                posY -= 1;
+            }
+            else {
+                posX -= 1;
+            }
+        }
+
+        return gain;
+    }
+
+    private int gainFromOnePointRight(int posX, int posY, char sign, Board board) {
+        return gainFromOnePointRightOrBottom(posX, posY, sign, board, true);
     }
 
     private int gainFromOnePointBottom(int posX, int posY, char sign, Board board) {
-        int gain =SCALE_FOR_GAIN_FUNCTION;
-        int placesToWin = 1;
-        boolean restricted = false;
-        for(int i = posX + 1; i < posX + board.NUMBER_TO_WIN; i++) {
-            if(board.positionIsInRangeOfBoard(i, posY)) {
-                if(board.charAt(i, posY) == sign) {
-                    gain *=SCALE_FOR_GAIN_FUNCTION;
-                    placesToWin += 1;
-                }
-                else if(board.charAt(i, posY) == opponentSign()) {
-                    gain /= SCALE_FOR_GAIN_FUNCTION;
-                    restricted = true;
-                    break;
-                }
-                else {
-                    placesToWin += 1;
-                }
-            }
-            else {
-                gain /= SCALE_FOR_GAIN_FUNCTION;
-                restricted = true;
-                break;
-            }
-        }
-        for(int i = 0; i < board.NUMBER_TO_WIN - placesToWin; i++) {
-            if (board.positionIsInRangeOfBoard(posX - 1 - i, posY)) {
-                if (board.charAt(posX - 1 - i, posY) == sign) {
-                    gain *= SCALE_FOR_GAIN_FUNCTION;
-                    placesToWin += 1;
-                } else if (board.charAt(posX - 1 - i, posY) == opponentSign()) {
-                    if(restricted = true) {
-                        return 0;
-                    }
-                } else {
-                    placesToWin += 1;
-                }
-            } else {
-                return 0;
-            }
-        }
-        return gain;
-
+        return gainFromOnePointRightOrBottom(posX, posY, sign, board, false);
     }
 
     private int gainFromOnePointBottomRight(int posX, int posY, char sign, Board board) {
         int gain =SCALE_FOR_GAIN_FUNCTION;
-        int placesToWin = 1;
-        boolean restricted = false;
+        Flags flags = new Flags();
+
         int oldposX = posX;
         int oldposY = posY;
+
         posX += 1;
         posY += 1;
-        for(int i = 1; i < board.NUMBER_TO_WIN; i++) {
-            if(board.positionIsInRangeOfBoard(posX, posY)) {
-                if(board.charAt(posX, posY) == sign) {
-                    gain *=SCALE_FOR_GAIN_FUNCTION;
-                    placesToWin += 1;
-                }
-                else if(board.charAt(posX, posY) == opponentSign()) {
-                    gain /= SCALE_FOR_GAIN_FUNCTION;
-                    restricted = true;
-                    break;
-                }
-                else {
-                    placesToWin += 1;
-                }
-            }
-            else {
-                gain /= SCALE_FOR_GAIN_FUNCTION;
-                restricted = true;
+
+        for(int i = 0; i < board.NUMBER_TO_WIN; i++) {
+            gain = gainRescale(board, posX, posY, sign, gain, flags);
+
+            if(flags.end) {
                 break;
             }
+
             posX += 1;
             posY += 1;
         }
+
         posX = oldposX - 1;
         posY = oldposY - 1;
-        for(int i = 0; i < board.NUMBER_TO_WIN - placesToWin; i++) {
-            if(board.positionIsInRangeOfBoard(posX, posY)) {
-                if(board.charAt(posX, posY) == sign) {
-                    gain *=SCALE_FOR_GAIN_FUNCTION;
-                    placesToWin += 1;
-                }
-                else if(board.charAt(posX, posY) == opponentSign()) {
-                    if(restricted = true) {
-                        return 0;
-                    }
-                }
-                else {
-                    placesToWin += 1;
-                }
-            }
-            else {
-                return 0;
-            }
+
+        int remaining = board.NUMBER_TO_WIN - flags.placesToWin;
+
+        for(int i = 0; i < remaining; i++) {
+            gain = gainRescaleSecondTime(board, posX, posY, sign, gain, flags);
+
             posX -= 1;
             posY -= 1;
         }
-        return gain;
 
+        return gain;
     }
 
     private int gainFromOnePointBottomLeft(int posX, int posY, char sign, Board board) {
         int gain =SCALE_FOR_GAIN_FUNCTION;
-        int placesToWin = 1;
-        boolean restricted = false;
+        Flags flags = new Flags();
+
         int oldposX = posX;
         int oldposY = posY;
+
         posX += 1;
         posY -= 1;
-        for(int i = 1; i < board.NUMBER_TO_WIN; i++) {
-            if(board.positionIsInRangeOfBoard(posX, posY)) {
-                if(board.charAt(posX, posY) == sign) {
-                    gain *=SCALE_FOR_GAIN_FUNCTION;
-                    placesToWin += 1;
-                }
-                else if(board.charAt(posX, posY) == opponentSign()) {
-                    gain /= SCALE_FOR_GAIN_FUNCTION;
-                    restricted = true;
-                    break;
-                }
-                else {
-                    placesToWin += 1;
-                }
-            }
-            else {
-                gain /= SCALE_FOR_GAIN_FUNCTION;
-                restricted = true;
+
+        for(int i = 0; i < board.NUMBER_TO_WIN; i++) {
+            gain = gainRescale(board, posX, posY, sign, gain, flags);
+
+            if(flags.end) {
                 break;
             }
+
             posX += 1;
             posY -= 1;
         }
+
         posX = oldposX - 1;
         posY = oldposY + 1;
-        for(int i = 0; i < board.NUMBER_TO_WIN - placesToWin; i++) {
-            if(board.positionIsInRangeOfBoard(posX, posY)) {
-                if(board.charAt(posX, posY) == sign) {
-                    gain *=SCALE_FOR_GAIN_FUNCTION;
-                    placesToWin += 1;
-                }
-                else if(board.charAt(posX, posY) == opponentSign()) {
-                    if(restricted = true) {
-                        return 0;
-                    }
-                }
-                else {
-                    placesToWin += 1;
-                }
-            }
-            else {
-                return 0;
-            }
+
+        int remaining = board.NUMBER_TO_WIN - flags.placesToWin;
+
+        for(int i = 0; i < remaining; i++) {
+            gain = gainRescaleSecondTime(board, posX, posY, sign, gain, flags);
+
             posX -= 1;
             posY += 1;
         }
-        return gain;
 
+        return gain;
     }
 
     private int gainFromOnePointTopRight(int posX, int posY, char sign, Board board) {
         int gain =SCALE_FOR_GAIN_FUNCTION;
-        int placesToWin = 1;
-        boolean restricted = false;
+        Flags flags = new Flags();
+
         int oldposX = posX;
         int oldposY = posY;
+
         posX -= 1;
         posY += 1;
-        for(int i = 1; i < board.NUMBER_TO_WIN; i++) {
-            if(board.positionIsInRangeOfBoard(posX, posY)) {
-                if(board.charAt(posX, posY) == sign) {
-                    gain *=SCALE_FOR_GAIN_FUNCTION;
-                    placesToWin += 1;
-                }
-                else if(board.charAt(posX, posY) == opponentSign()) {
-                    gain /= SCALE_FOR_GAIN_FUNCTION;
-                    restricted = true;
-                    break;
-                }
-                else {
-                    placesToWin += 1;
-                }
-            }
-            else {
-                gain /= SCALE_FOR_GAIN_FUNCTION;
-                restricted = true;
+
+        for(int i = 0; i < board.NUMBER_TO_WIN; i++) {
+            gain = gainRescale(board, posX, posY, sign, gain, flags);
+
+            if(flags.end) {
                 break;
             }
+
             posX -= 1;
             posY += 1;
         }
+
         posX = oldposX + 1;
         posY = oldposY - 1;
-        for(int i = 0; i < board.NUMBER_TO_WIN - placesToWin; i++) {
-            if(board.positionIsInRangeOfBoard(posX, posY)) {
-                if(board.charAt(posX, posY) == sign) {
-                    gain *=SCALE_FOR_GAIN_FUNCTION;
-                    placesToWin += 1;
-                }
-                else if(board.charAt(posX, posY) == opponentSign()) {
-                    if(restricted = true) {
-                        return 0;
-                    }
-                }
-                else {
-                    placesToWin += 1;
-                }
-            }
-            else {
-                return 0;
-            }
+
+        int remaining = board.NUMBER_TO_WIN - flags.placesToWin;
+
+        for(int i = 0; i < remaining; i++) {
+            gain = gainRescaleSecondTime(board, posX, posY, sign, gain, flags);
+
             posX += 1;
             posY -= 1;
         }
-        return gain;
 
+        return gain;
     }
 
     private int gainFromOnePointTopLeft(int posX, int posY, char sign, Board board) {
         int gain =SCALE_FOR_GAIN_FUNCTION;
-        int placesToWin = 1;
-        boolean restricted = false;
+        Flags flags = new Flags();
+
         int oldposX = posX;
         int oldposY = posY;
+
         posX -= 1;
         posY -= 1;
-        for(int i = 1; i < board.NUMBER_TO_WIN; i++) {
-            if(board.positionIsInRangeOfBoard(posX, posY)) {
-                if(board.charAt(posX, posY) == sign) {
-                    gain *=SCALE_FOR_GAIN_FUNCTION;
-                    placesToWin += 1;
-                }
-                else if(board.charAt(posX, posY) == opponentSign()) {
-                    gain /= SCALE_FOR_GAIN_FUNCTION;
-                    restricted = true;
-                    break;
-                }
-                else {
-                    placesToWin += 1;
-                }
-            }
-            else {
-                gain /= SCALE_FOR_GAIN_FUNCTION;
-                restricted = true;
+
+        for(int i = 0; i < board.NUMBER_TO_WIN; i++) {
+            gain = gainRescale(board, posX, posY, sign, gain, flags);
+
+            if(flags.end) {
                 break;
             }
+
             posX -= 1;
             posY -= 1;
         }
+
         posX = oldposX + 1;
         posY = oldposY + 1;
-        for(int i = 0; i < board.NUMBER_TO_WIN - placesToWin; i++) {
-            if(board.positionIsInRangeOfBoard(posX, posY)) {
-                if(board.charAt(posX, posY) == sign) {
-                    gain *=SCALE_FOR_GAIN_FUNCTION;
-                    placesToWin += 1;
-                }
-                else if(board.charAt(posX, posY) == opponentSign()) {
-                    if(restricted = true) {
-                        return 0;
-                    }
-                }
-                else {
-                    placesToWin += 1;
-                }
-            }
-            else {
-                return 0;
-            }
+
+        int remaining = board.NUMBER_TO_WIN - flags.placesToWin;
+
+        for(int i = 0; i < remaining; i++) {
+            gain = gainRescaleSecondTime(board, posX, posY, sign, gain, flags);
+
             posX += 1;
             posY += 1;
         }
-        return gain;
 
+        return gain;
     }
 
+    private int gainRescale(Board board, int x, int y, char sign, int gain, Flags flags) {
+        if(board.positionIsInRangeOfBoard(x, y)) {
+            if(board.charAt(x, y) == sign) {
+                gain *= SCALE_FOR_GAIN_FUNCTION;
+                flags.placesToWin += 1;
+            }
+            else if(board.charAt(x, y) == opponentSign(sign)) {
+                gain /= SCALE_FOR_GAIN_FUNCTION;
+                flags.restricted = true;
+                flags.end = true;
+            }
+            else {
+                flags.placesToWin += 1;
+            }
+        }
+        else {
+            gain /= SCALE_FOR_GAIN_FUNCTION;
+            flags.restricted = true;
+            flags.end = true;
+        }
+        return gain;
+    }
 
+    private int gainRescaleSecondTime(Board board, int x, int y, char sign, int gain, Flags flags) {
+        if(board.positionIsInRangeOfBoard(x, y)) {
+            if(board.charAt(x, y) == sign) {
+                gain *= SCALE_FOR_GAIN_FUNCTION;
+                flags.placesToWin += 1;
+            }
+            else if(board.charAt(x, y) == opponentSign(sign)) {
+                return 0;
+            }
+            else {
+                flags.placesToWin += 1;
+            }
+        }
+        else {
+            return 0;
+        }
+        return gain;
+    }
 
-    private char opponentSign() {
+    private char opponentSign(char sign) {
         if(sign == 'X')
             return 'O';
         else

@@ -1,12 +1,11 @@
-import java.sql.SQLOutput;
 import java.util.ArrayList;
 
 public class Board {
-    public final int NUMBER_TO_WIN = 5;
+    final int NUMBER_TO_WIN = 5;
     private final int size;
     private ArrayList<ArrayList<Character>> gameBoard;
 
-    public Board(int size) {
+    Board(int size) {
         this.size = size;
         gameBoard = new ArrayList<>();
 
@@ -18,19 +17,35 @@ public class Board {
         }
     }
 
-    public ArrayList<ArrayList<Character>> getGameBoard(){
+    public Board(Board board) {
+        this.size = board.size;
+        gameBoard = new ArrayList<>();
+
+        for(int i = 0; i < this.size; i++) {
+            gameBoard.add(new ArrayList<>());
+            for(int j = 0; j < this.size; j++) {
+                gameBoard.get(i).add(board.getGameBoard().get(i).get(j));
+            }
+        }
+    }
+
+    ArrayList<ArrayList<Character>> getGameBoard(){
         return gameBoard;
     }
 
-    public int getSize() {
+    public void setGameBoard(ArrayList<ArrayList<Character>> gameBoard) {
+        this.gameBoard = gameBoard;
+    }
+
+    int getSize() {
         return size;
     }
 
-    public char charAt(int posX, int posY) {
+    char charAt(int posX, int posY) {
         return gameBoard.get(posX).get(posY);
     }
 
-    public char charAtNormalized(int posX, int posY) {
+    char charAtNormalized(int posX, int posY) {
         return gameBoard.get(posX-1).get(posY-1);
     }
 
@@ -93,11 +108,11 @@ public class Board {
         return stringBuilder.toString();
     }
 
-    public void printGameBoard() {
+    void printGameBoard() {
         System.out.println(makeVisualizationOfBoard());
     }
 
-    public void move(int posX, int posY, char XorO) throws Exception {
+    void move(int posX, int posY, char XorO) throws Exception {
         checkMoveAndMove(makeNaturalIndex(posX), makeNaturalIndex(posY), XorO);
     }
 
@@ -124,7 +139,7 @@ public class Board {
         return gameBoard.get(posX).get(posY)==' ';
     }
 
-    public boolean positionIsInRangeOfBoard(int posX, int posY) {
+    boolean positionIsInRangeOfBoard(int posX, int posY) {
         return posX < size && posY < size && posX >= 0 && posY >= 0;
     }
 
@@ -132,7 +147,7 @@ public class Board {
         gameBoard.get(posX).set(posY, XorO);
     }
 
-    public boolean endOfGame() {
+    boolean endOfGame() {
         boolean remis = true;
         for(int i = 0; i < size; i++) {
             for (int j = 0; j < size; j++) {
@@ -274,10 +289,7 @@ public class Board {
         if(notInRangeOfSize(posX) || notInRangeOfSize(posY)){
             return true;
         }
-        if(gameBoard.get(posX).get(posY) != XorO){
-            return true;
-        }
-        return false;
+        return gameBoard.get(posX).get(posY) != XorO;
     }
 
 }

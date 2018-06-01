@@ -1,5 +1,5 @@
 public class Game {
-    private final Board board;
+    private Board board;
     private final Player playerX;
     private final Player playerO;
 
@@ -13,13 +13,13 @@ public class Game {
         board.printGameBoard();
         while(true) {
 
-            playerX.move(board);
+            board = playerX.move(board);
             if(board.endOfGame()){
                 break;
             }
             board.printGameBoard();
 
-            playerO.move(board);
+            board = playerO.move(board);
             if(board.endOfGame()){
                 break;
             }
